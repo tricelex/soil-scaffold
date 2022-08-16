@@ -328,6 +328,24 @@ function App(props) {
             blockExplorer={blockExplorer}
             contractConfig={contractConfig}
           />
+          <Contract
+            name="SoulBoundFactory"
+            price={price}
+            signer={userSigner}
+            provider={localProvider}
+            address={address}
+            blockExplorer={blockExplorer}
+            contractConfig={contractConfig}
+          />
+          <Contract
+            name="SoulBoundNFT"
+            price={price}
+            signer={userSigner}
+            provider={localProvider}
+            address={address}
+            blockExplorer={blockExplorer}
+            contractConfig={contractConfig}
+          />
         </Route>
         <Route path="/hints">
           <Hints

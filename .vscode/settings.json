@@ -15,7 +15,7 @@
       "**/build/": true,
       "**/debug/": true,
       "**/dist/": true,
-      "**/node_modules/": true,
+      "**/node_modules/": false,
       "**/obj": true,
       "yarn-error.log": true,
       "**/yarn-error.log": true,
@@ -23,10 +23,18 @@
    },
    "explorerExclude.backup": null,
    "eslint.workingDirectories": [
-   
-      { "directory": "packages/eth-hooks", "changeProcessCWD": true },
-      { "directory": "packages/hardhat-ts", "changeProcessCWD": true },
-      { "directory": "packages/vite-app-ts", "changeProcessCWD": true },
+      {
+         "directory": "packages/eth-hooks",
+         "changeProcessCWD": true
+      },
+      {
+         "directory": "packages/hardhat-ts",
+         "changeProcessCWD": true
+      },
+      {
+         "directory": "packages/vite-app-ts",
+         "changeProcessCWD": true
+      },
    ],
    "search.exclude": {
       "**/yarn-error.log": true,

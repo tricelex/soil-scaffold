@@ -1,4 +1,5 @@
 // deploy/00_deploy_your_contract.js
+const { assert } = require("console");
 
 const { ethers } = require("hardhat");
 
@@ -17,6 +18,47 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
   const { deployer } = await getNamedAccounts();
   const chainId = await getChainId();
 
+  const OWNER_ADDRESS = deployer;
+
+  const sbDeploymnet = await deploy("SoulBoundNFT", {
+    // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
+    from: deployer,
+    // args: ["Hello"],
+    log: true,
+  });
+
+  const sbProxyRegistryDeploymnet = await deploy("SoulBoundNFTProxyRegistry", {
+    // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
+    from: deployer,
+    // args: ["Hello"],
+    log: true,
+  });
+
+  const sbProxyRegistry = await ethers.getContractAt(
+    "SoulBoundNFTProxyRegistry",
+    sbProxyRegistryDeploymnet.address
+  );
+
+  const sbFactoryDeployment = await deploy("SoulBoundNFTFactory", {
+    from: deployer,
+    args: [sbProxyRegistryDeploymnet.address],
+    log: true,
+  });
+
+  await sbProxyRegistry.setProxyFactory(sbFactoryDeployment.address);
+
+  const sbFactory = await ethers.getContractAt(
+    "SoulBoundNFTFactory",
+    sbFactoryDeployment.address
+  );
+
+  const upgradeableBeaconTx = await sbFactory.newUpgradeableBeacon(
+    sbDeploymnet.address
+  );
+
+  const tx = await upgradeableBeaconTx.wait();
+  const topic = sbFactory.interface.getEventTopic("UpgradeableBeaconCreated");
+
   await deploy("YourContract", {
     // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
     from: deployer,
@@ -25,58 +67,32 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
     waitConfirmations: 5,
   });
 
-  // Getting a previously deployed contract
-  const YourContract = await ethers.getContract("YourContract", deployer);
-  /*  await YourContract.setPurpose("Hello");
-  
-    // To take ownership of yourContract using the ownable library uncomment next line and add the 
-    // address you want to be the owner. 
-    
-    await YourContract.transferOwnership(
-      "ADDRESS_HERE"
-    );
+  /* eslint-disable */
+  const [beaconAddr] = tx.logs
+    .filter((log) => log.topics.find((t) => t === topic))
+    .map((log) =>
+      sbFactory.interface.decodeEventLog("UpgradeableBeaconCreated", log.data)
+    )
+    .map((d) => {
+      console.log("UpgradeableBeaconCreated", d);
+      return d;
+    })
+    .map((event) => event[1]);
 
-    //const YourContract = await ethers.getContractAt('YourContract', "0xaAC799eC2d00C013f1F11c37E654e59B0429DF6A") //<-- if you want to instantiate a version of a contract at a specific address!
-  */
+  console.log("upgradeableBeacon deployed to", beaconAddr);
 
-  /*
-  //If you want to send value to an address from the deployer
-  const deployerWallet = ethers.provider.getSigner()
-  await deployerWallet.sendTransaction({
-    to: "0x34aA3F359A9D614239015126635CE7732c18fDF3",
-    value: ethers.utils.parseEther("0.001")
-  })
-  */
+  const UpgradeableBeacon = await ethers.getContractFactory(
+    "UpgradeableBeacon"
+  );
+  const upgradeableBeacon = UpgradeableBeacon.attach(beaconAddr);
 
-  /*
-  //If you want to send some ETH to a contract on deploy (make your constructor payable!)
-  const yourContract = await deploy("YourContract", [], {
-  value: ethers.utils.parseEther("0.05")
-  });
-  */
+  assert(
+    (await upgradeableBeacon.implementation()) == sbDeploymnet.address,
+    "Address of implementation is not correct"
+  );
 
-  /*
-  //If you want to link a library into your contract:
-  // reference: https://github.com/austintgriffith/scaffold-eth/blob/using-libraries-example/packages/hardhat/scripts/deploy.js#L19
-  const yourContract = await deploy("YourContract", [], {}, {
-   LibraryName: **LibraryAddress**
-  });
-  */
-
-  // Verify from the command line by running `yarn verify`
-
-  // You can also Verify your contracts with Etherscan here...
-  // You don't want to verify on localhost
-  // try {
-  //   if (chainId !== localChainId) {
-  //     await run("verify:verify", {
-  //       address: YourContract.address,
-  //       contract: "contracts/YourContract.sol:YourContract",
-  //       constructorArguments: [],
-  //     });
-  //   }
-  // } catch (error) {
-  //   console.error(error);
-  // }
+  await sbFactory.transferOwnership(OWNER_ADDRESS);
+  await upgradeableBeacon.transferOwnership(OWNER_ADDRESS);
+  await sbProxyRegistry.transferOwnership(OWNER_ADDRESS);
 };
-module.exports.tags = ["YourContract"];
+module.exports.tags = ["SoulBoundNFT", "SoulBoundNFTFactory"];
