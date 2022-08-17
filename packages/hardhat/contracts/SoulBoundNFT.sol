@@ -2,7 +2,6 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/draft-ERC721VotesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
@@ -24,7 +23,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 contract SoulBoundNFT is
     Initializable,
     AccessControlUpgradeable,
-    ERC721VotesUpgradeable,
     ERC721BurnableUpgradeable,
     PausableUpgradeable,
     UUPSUpgradeable
@@ -41,8 +39,6 @@ contract SoulBoundNFT is
         address owner;
         address mintedTo;
         string nickName;
-        string role;
-        string organization;
         string tokenName;
     }
 
@@ -50,23 +46,16 @@ contract SoulBoundNFT is
         uint256 id;
         address owner;
         string nickName;
-        string role;
-        string organization;
         string tokenName;
     }
 
     struct TokenOwnerInfo {
         string nickName;
-        string role;
     }
 
     //===== State =====//
     Counters.Counter internal _counter;
 
-    address payable devVault;
-
-    string internal _organization;
-    string internal _defaultRole;
     bool internal _transferable;
     bool internal _mintable;
     uint256 internal _mintPrice;
@@ -93,8 +82,6 @@ contract SoulBoundNFT is
     function initialize(
         string memory name_,
         string memory symbol_,
-        string memory organization_,
-        string memory defaultRole_,
         bool transferable_,
         bool mintable_,
         uint256 mintPrice_,
@@ -103,10 +90,6 @@ contract SoulBoundNFT is
         __ERC721_init(name_, symbol_);
         __AccessControl_init();
 
-        devVault = payable(address(0xf4553cDe05fA9FC35F8F1B860bAC7FA157779382));
-
-        _organization = organization_;
-        _defaultRole = defaultRole_;
         _transferable = transferable_;
         _mintable = mintable_;
         _mintPrice = mintPrice_;
@@ -132,20 +115,14 @@ contract SoulBoundNFT is
 
     function batchMint(
         address[] calldata toAddresses,
-        string[] calldata nickNames,
-        string[] calldata roles
+        string[] calldata nickNames
     ) external onlyRole(MINTER_ROLE) whenNotPaused {
         require(
             toAddresses.length == nickNames.length,
             "SoulBoundNFT: Array length mismatch"
         );
-        require(
-            toAddresses.length == roles.length,
-            "SoulBoundNFT: Array length mismatch"
-        );
-
         for (uint256 i = 0; i < toAddresses.length; i++) {
-            _mint(toAddresses[i], nickNames[i], roles[i]);
+            _mint(toAddresses[i], nickNames[i]);
         }
     }
 
@@ -200,13 +177,6 @@ contract SoulBoundNFT is
         _mintPrice = mintPrice_;
     }
 
-    function setDefaultRole(string memory defaultRole_)
-        external
-        onlyRole(MINTER_ROLE)
-    {
-        _defaultRole = defaultRole_;
-    }
-
     //===== Public Functions =====//
 
     function version() public pure returns (uint256) {
@@ -216,7 +186,6 @@ contract SoulBoundNFT is
     function mint(
         address to,
         string calldata nickName,
-        string calldata role,
         bytes32 hash,
         bytes memory signature
     ) public payable whenNotPaused {
@@ -232,22 +201,14 @@ contract SoulBoundNFT is
                 msg.value >= _mintPrice,
                 "SoulBoundNFT: insufficient funds!"
             );
-            _mint(to, nickName, _defaultRole);
+            _mint(to, nickName);
         } else {
             require(
                 hasRole(MINTER_ROLE, msg.sender),
                 "SoulBoundNFT: not allowed to mint!"
             );
-            _mint(to, nickName, role);
+            _mint(to, nickName);
         }
-    }
-
-    function organization() public view returns (string memory) {
-        return _organization;
-    }
-
-    function defaultRole() public view returns (string memory) {
-        return _defaultRole;
     }
 
     function transferable() public view returns (bool) {
@@ -270,10 +231,6 @@ contract SoulBoundNFT is
         return _tokenOwnerInfo[tokenId].nickName;
     }
 
-    function roleOf(uint256 tokenId) public view returns (string memory) {
-        return _tokenOwnerInfo[tokenId].role;
-    }
-
     function nextId() public view returns (uint256) {
         return _counter.current();
     }
@@ -288,8 +245,6 @@ contract SoulBoundNFT is
             ownerOf(tokenId),
             mintedTo(tokenId),
             nickNameOf(tokenId),
-            roleOf(tokenId),
-            organization(),
             name()
         );
         return tokenData;
@@ -306,18 +261,16 @@ contract SoulBoundNFT is
             tokenId,
             mintedTo(tokenId),
             nickNameOf(tokenId),
-            roleOf(tokenId),
-            organization(),
             name()
         );
         return constructTokenURI(params);
     }
 
     function withdraw() public {
-        uint256 devFee = (address(this).balance / 100) * 1;
-        (bool donation, ) = devVault.call{value: devFee}("");
-        require(donation);
-
+        require(
+            hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
+            "SoulBoundNFT: not allowed to withdraw!"
+        );
         (bool release, ) = payable(_vault).call{value: address(this).balance}(
             ""
         );
@@ -384,14 +337,9 @@ contract SoulBoundNFT is
 
     //===== Internal Functions =====//
 
-    function _mint(
-        address to,
-        string memory nickName,
-        string memory role
-    ) internal whenNotPaused {
+    function _mint(address to, string memory nickName) internal whenNotPaused {
         uint256 tokenId = _counter.current();
         _tokenOwnerInfo[tokenId].nickName = nickName;
-        _tokenOwnerInfo[tokenId].role = role;
         _mintedTo[tokenId] = to;
         _safeMint(to, tokenId);
         _counter.increment();
@@ -401,8 +349,7 @@ contract SoulBoundNFT is
         address from,
         address to,
         uint256 tokenId
-    ) internal virtual override(ERC721Upgradeable, ERC721VotesUpgradeable) {
-        _transferVotingUnits(from, to, 1);
+    ) internal virtual override(ERC721Upgradeable) {
         super._afterTokenTransfer(from, to, tokenId);
     }
 
@@ -425,12 +372,6 @@ contract SoulBoundNFT is
                     "<text style='font: bold 100px sans-serif;' text-anchor='middle' alignment-baseline='central' x='600' y='1250'>",
                     params.nickName,
                     "</text>",
-                    "<text style='font: bold 100px sans-serif;' text-anchor='middle' alignment-baseline='central' x='600' y='1350'>",
-                    params.role,
-                    "</text>",
-                    "<text style='font: bold 100px sans-serif;' text-anchor='middle' alignment-baseline='central' x='600' y='1450'>",
-                    _organization,
-                    "</text>",
                     "</svg>"
                 )
             )
@@ -443,10 +384,6 @@ contract SoulBoundNFT is
           Strings.toString(params.id),
           ', "nickName": "',
           params.nickName,
-          '", "role": "',
-          params.role,
-          '", "organization": "',
-          params.organization,
           '", "tokenName": "',
           params.tokenName,
           '", "image": "data:image/svg+xml;base64,',

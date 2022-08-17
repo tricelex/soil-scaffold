@@ -59,14 +59,6 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
   const tx = await upgradeableBeaconTx.wait();
   const topic = sbFactory.interface.getEventTopic("UpgradeableBeaconCreated");
 
-  await deploy("YourContract", {
-    // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
-    from: deployer,
-    // args: [ "Hello", ethers.utils.parseEther("1.5") ],
-    log: true,
-    waitConfirmations: 5,
-  });
-
   /* eslint-disable */
   const [beaconAddr] = tx.logs
     .filter((log) => log.topics.find((t) => t === topic))
