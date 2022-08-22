@@ -14,7 +14,6 @@ contract SoulBoundNFTProxyRegistry is Ownable {
     struct ContractInfo {
         string name;
         string symbol;
-        string organization;
         address owner;
     }
 
@@ -33,7 +32,6 @@ contract SoulBoundNFTProxyRegistry is Ownable {
         address proxyAddress,
         string memory name,
         string memory symbol,
-        string memory organization,
         address tokenOwner
     ) public onlyProxyFactory {
         ownerToProxyAddress[tokenOwner].push(proxyAddress);
@@ -41,7 +39,6 @@ contract SoulBoundNFTProxyRegistry is Ownable {
         proxyAddressToContractInfo[proxyAddress] = ContractInfo({
             name: name,
             symbol: symbol,
-            organization: organization,
             owner: tokenOwner
         });
 

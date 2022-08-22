@@ -30,8 +30,6 @@ contract SoulBoundNFTFactory is Ownable {
     function payload(
         string memory name,
         string memory symbol,
-        string memory organization,
-        string memory defaultRole,
         bool transferable,
         bool mintable,
         uint256 mintPrice,
@@ -39,11 +37,9 @@ contract SoulBoundNFTFactory is Ownable {
     ) internal pure returns (bytes memory) {
         return
             abi.encodeWithSignature(
-                "initialize(string,string,string,string,bool,bool,uint256,address)",
+                "initialize(string,string,bool,bool,uint256,address)",
                 name,
                 symbol,
-                organization,
-                defaultRole,
                 transferable,
                 mintable,
                 mintPrice,
@@ -75,8 +71,6 @@ contract SoulBoundNFTFactory is Ownable {
     function newBeaconProxy(
         string memory name,
         string memory symbol,
-        string memory organization,
-        string memory defaultRole,
         bool transferable,
         bool mintable,
         uint256 mintPrice,
@@ -86,8 +80,6 @@ contract SoulBoundNFTFactory is Ownable {
         bytes memory data = payload(
             name,
             symbol,
-            organization,
-            defaultRole,
             transferable,
             mintable,
             mintPrice,
@@ -98,7 +90,6 @@ contract SoulBoundNFTFactory is Ownable {
             address(beaconProxy),
             name,
             symbol,
-            organization,
             tokenOwner
         );
         emit BeaconProxyCreated(beaconAddress, address(beaconProxy));
